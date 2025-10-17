@@ -1,0 +1,39 @@
+enum Kind { HUMAN AI }
+
+type Player {
+  id: ID!
+  name: String!
+  kind: Kind!
+  isEliminated: Boolean!
+}
+
+type Message {
+  playerId: ID!
+  round: Int!
+  text: String!
+}
+
+type GameState {
+  id: ID!
+  phase: String!
+  round: Int!
+  players: [Player!]!
+  messages: [Message!]!
+}
+
+type Query {
+  gameState(gameId: ID!): GameState!
+}
+
+type Mutation {
+  startGame(name: String = "Human"): GameState!
+  say(gameId: ID!, text: String!): GameState!
+  vote(gameId: ID!, votes: [VoteInput!]!): GameState!
+}
+
+input VoteInput { voterId: ID!, targetId: ID! }
+
+extend type Mutation {
+  startAuto(gameId: ID!): Boolean!
+  stopAuto(gameId: ID!): Boolean!
+}

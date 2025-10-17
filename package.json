@@ -1,0 +1,10 @@
+{
+  "name": "who-is-human",
+  "private": true,
+  "workspaces": ["server"],
+  "scripts": {
+    "dev:server": "npm run -w @who/server dev",
+    "build:server": "npm run -w @who/server build",
+    "start:server": "npm run -w @who/server start"
+  }
+}
