@@ -29,6 +29,7 @@ type Mutation {
   startGame(name: String = "Human"): GameState!
   say(gameId: ID!, text: String!): GameState!
   vote(gameId: ID!, votes: [VoteInput!]!): GameState!
+  llmPing(text: String = "Say OK"): String!
 }
 
 input VoteInput { voterId: ID!, targetId: ID! }

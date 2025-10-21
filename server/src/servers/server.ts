@@ -1,5 +1,5 @@
 import express from "express";
-import { mountGraphQL } from "./servers/graphql.js";
+import { mountGraphQL } from "./graphql.js";
 
 const app = express();
 app.get("/", (_req, res) => {

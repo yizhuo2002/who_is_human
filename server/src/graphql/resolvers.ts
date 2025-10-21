@@ -1,61 +1,60 @@
 import { engine } from "../engine.js";
-import fs from "fs";
-import path from "path";
 import { getOrCreateAgent, stopAgent } from "../engine/agents.js";
+import { askLLM } from "../ai/provider.js";
+
+type VotePair = { voterId: string; targetId: string };
 
 export const resolvers = {
   Query: {
-    gameState: (_: any, { gameId }: { gameId: string }) => {
+    gameState: (_: unknown, { gameId }: { gameId: string }) => {
       const g = engine.get(gameId);
       return g.publicState();
     },
   },
 
   Mutation: {
+    // Healthcheck for the LLM wiring
+    llmPing: async (_: unknown, { text }: { text?: string }) => {
+      return askLLM(text ?? "Say OK");
+    },
 
-    startGame: (_: any, { name }: { name?: string }) => {
+    startGame: (_: unknown, { name }: { name?: string }) => {
       const g = engine.createGame(name ?? "Human");
       return g.publicState();
     },
 
-
-    say: async (_: any, { gameId, text }: { gameId: string; text: string }) => {
+    say: async (_: unknown, { gameId, text }: { gameId: string; text: string }) => {
       const g = engine.get(gameId);
       const human = g.players.find((p) => p.kind === "HUMAN")!;
       g.postMessage(human.id, text);
 
-
+      // First message of the game → host announces rules
       if (g.phase === "ROUND_START") {
-        g.nextPhase();
-        const host = g.players.find(
-          (p) => p.name === "Host AI" || p.name.includes("Host")
-        );
-        if (host) g.postMessage(host.id, g.host.announceRules());
+        g.nextPhase(); // HOST_ANNOUNCE
+        g.postMessage(g.host.id, g.host.announceRules());
       }
 
-      g.nextPhase();
+      // Discussion: each AI replies
+      g.nextPhase(); // DISCUSS
       for (const ai of g.players.filter((p) => p.kind === "AI") as any[]) {
-        const reply = await ai.speak(
-          `Round ${g.round} discussion. Human said: "${text}"`
-        );
+        const reply = await ai.speak(`Round ${g.round} discussion. Human said: "${text}"`);
         g.postMessage(ai.id, reply);
       }
 
-      g.nextPhase();
+      // Move to summary
+      g.nextPhase(); // SUMMARY
       return g.publicState();
     },
 
-
-    vote: (
-      _: any,
-      { gameId, votes }: { gameId: string; votes: { voterId: string; targetId: string }[] }
-    ) => {
+    vote: (_: unknown, { gameId, votes }: { gameId: string; votes: VotePair[] }) => {
       const g = engine.get(gameId);
+
       const byTarget: Record<string, string[]> = {};
       for (const { voterId, targetId } of votes) {
         (byTarget[targetId] ||= []).push(voterId);
       }
-      g.nextPhase();
+
+      g.nextPhase(); // VOTE
       g.tallyAndEliminate(byTarget);
 
       const result = g.winOrLose();
@@ -65,18 +64,17 @@ export const resolvers = {
       return g.publicState();
     },
 
-
-    startAuto: async (_: any, { gameId }: { gameId: string }) => {
+    // Automated host loop controls
+    startAuto: async (_: unknown, { gameId }: { gameId: string }) => {
       const g = engine.get(gameId);
       const agent = getOrCreateAgent(g, (evt) => {
-        // For now, just log. Later can push via Subscriptions or Socket.IO
         console.log("[Host event]", evt);
       });
       await agent.start();
       return true;
     },
 
-    stopAuto: (_: any, { gameId }: { gameId: string }) => {
+    stopAuto: (_: unknown, { gameId }: { gameId: string }) => {
       stopAgent(gameId);
       return true;
     },
